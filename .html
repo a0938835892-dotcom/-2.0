@@ -1,0 +1,683 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>WRESTLING ARENA 3D LITE</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080d17;color:white;font-family:Arial,"Noto Sans TC",sans-serif;touch-action:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+button,select{font:inherit;touch-action:manipulation}
+button{color:white;background:#203653;border:1px solid #627b9c;border-radius:9px;padding:9px}
+#hud{position:fixed;inset:0;pointer-events:none}
+.panel{background:#101a2be8;border:1px solid #465c7b;border-radius:9px;padding:7px}
+#top{position:absolute;top:6px;left:6px;right:6px;display:flex;justify-content:space-between;gap:6px}
+#logo{font-size:clamp(12px,3vw,20px);font-weight:900}
+.small{font-size:10px;color:#b9c9e0}
+.health{width:min(34vw,220px)}
+.name{font-size:11px;margin:3px 0}
+.bar{height:9px;background:#303b4e;border-radius:10px;overflow:hidden}
+.fill{height:100%;width:100%;background:#39dd82}
+#eh{background:#ff5367}
+#center{position:absolute;top:77px;left:50%;transform:translateX(-50%);text-align:center;white-space:nowrap;text-shadow:0 2px 5px black}
+#msg{font-size:clamp(15px,3vw,23px);font-weight:900}
+#hint{font-size:10px;color:#d5dfed;margin-top:3px}
+#pause{pointer-events:auto;position:absolute;top:126px;right:8px;padding:7px 10px}
+#bottom{position:absolute;bottom:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:flex-end}
+#joy{pointer-events:auto;position:relative;width:104px;height:104px;border-radius:50%;background:#182a45d9;border:2px solid #839cbe}
+#stick{position:absolute;width:42px;height:42px;left:29px;top:29px;border-radius:50%;background:#eef3ff;border:3px solid #8399bc}
+#actions{pointer-events:auto;display:grid;grid-template-columns:repeat(2,60px);gap:5px}
+.act{width:60px;height:60px;border-radius:50%;padding:2px;font-size:10px;font-weight:bold}
+.act:active{background:#e9405c}
+#menu{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:8px;background:#060b14e8;pointer-events:auto}
+#card{width:min(570px,97vw);max-height:96vh;overflow:auto;padding:14px;background:#111d31;border:1px solid #5d7496;border-radius:14px}
+h1{font-size:clamp(23px,5vw,34px);margin:0 0 5px}
+h3{font-size:13px;margin:12px 0 6px}
+.note{font-size:11px;line-height:1.6;color:#c4d0e2}
+#roster{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.person{font-size:10px;padding:7px 1px;min-width:0;background:#1b2a42}
+.person.sel{border:2px solid #ffe16b}
+.dot{display:block;width:16px;height:16px;border-radius:50%;margin:0 auto 3px;border:1px solid #fff8}
+select{width:100%;padding:9px;background:#1d2c44;color:white;border:1px solid #5b7294;border-radius:8px}
+#start{width:100%;margin-top:10px;padding:12px;background:#e53c56;font-weight:900;font-size:17px}
+#status{font-size:11px;color:#ffdf8b;margin-top:5px;overflow-wrap:anywhere}
+@media(max-width:430px){#roster{grid-template-columns:repeat(4,minmax(0,1fr))}#joy{width:94px;height:94px}#stick{left:25px;top:25px}}
+</style>
+</head>
+<body>
+<div id="hud">
+ <div id="top">
+  <div class="panel"><div id="logo">WRESTLING <span style="color:#ff526b">3D LITE</span></div><div class="small">30 CHARACTERS · LOW GRAPHICS</div></div>
+  <div class="panel health">
+   <div class="name" id="pn">玩家</div><div class="bar"><div id="ph" class="fill"></div></div>
+   <div class="name" id="en">對手</div><div class="bar"><div id="eh" class="fill"></div></div>
+  </div>
+ </div>
+ <div id="center"><div id="msg">READY TO WRESTLE</div><div id="hint">靠近對手再抓抱或摔投</div></div>
+ <button id="pause">暫停</button>
+ <div id="bottom">
+  <div id="joy"><div id="stick"></div></div>
+  <div id="actions">
+   <button class="act" data-a="punch">拳擊</button>
+   <button class="act" data-a="kick">踢擊</button>
+   <button class="act" data-a="grab">抓手臂</button>
+   <button class="act" data-a="slam">摔投</button>
+  </div>
+ </div>
+ <div id="menu">
+  <div id="card">
+   <h1>WRESTLING <span style="color:#ff526b">ARENA</span></h1>
+   <div class="note">低效能 3D 摔角遊戲。先顯示內建人物，再嘗試自動載入免費線上 GLB 模型。模型下載失敗不會阻止遊戲開始。</div>
+   <h3>① 選擇人物</h3><div id="roster"></div>
+   <h3>② 選擇對手</h3><select id="enemySelect"></select>
+   <h3>③ 線上 3D 模型</h3>
+   <div class="note">自動取得公開免費模型清單，不需要 API Key。外部模型可能是奇幻人物或生物，並非全部都是摔角手。</div>
+   <div id="status">正在連線取得免費模型清單……</div>
+   <button id="start">開始 3D 摔角</button>
+   <p class="note">電腦：WASD／方向鍵移動，J 拳擊，K 踢擊，L 抓手臂，I 摔投，Esc 暫停。<br>平板：左側搖桿移動，右側按鈕操作。</p>
+  </div>
+ </div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from "three";
+import {GLTFLoader} from "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/loaders/GLTFLoader.js";
+import {clone as cloneSkeleton} from "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/utils/SkeletonUtils.js";
+
+const $=id=>document.getElementById(id);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x080d17);
+scene.fog=new THREE.Fog(0x080d17,22,48);
+
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,100);
+camera.position.set(0,7,12);
+
+const renderer=new THREE.WebGLRenderer({
+ antialias:false,alpha:false,powerPreference:"low-power"
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio,.85));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=false;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.domElement.style.position="fixed";
+renderer.domElement.style.inset="0";
+renderer.domElement.style.zIndex="-1";
+document.body.prepend(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xd5e5ff,0x303344,1.8));
+const light=new THREE.DirectionalLight(0xffffff,1.4);
+light.position.set(-5,10,6);
+scene.add(light);
+
+const mat=c=>new THREE.MeshLambertMaterial({color:c});
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(70,70),mat(0x141a27));
+floor.rotation.x=-Math.PI/2;
+floor.position.y=-.18;
+scene.add(floor);
+
+const ring=new THREE.Group();
+scene.add(ring);
+const deck=new THREE.Mesh(new THREE.BoxGeometry(9,.32,9),mat(0x2a3a52));
+deck.position.y=.02;
+ring.add(deck);
+const canvasMat=mat(0x24638b);
+const canvas=new THREE.Mesh(new THREE.BoxGeometry(8.6,.05,8.6),canvasMat);
+canvas.position.y=.205;
+ring.add(canvas);
+
+for(const x of [-4.25,4.25])for(const z of [-4.25,4.25]){
+ const p=new THREE.Mesh(new THREE.BoxGeometry(.18,1.9,.18),mat(0x71829b));
+ p.position.set(x,1.2,z);
+ ring.add(p);
+}
+for(let h=0;h<3;h++){
+ const y=.58+h*.5;
+ const pts=[[-4.25,y,-4.25],[4.25,y,-4.25],[4.25,y,4.25],[-4.25,y,4.25]];
+ for(let i=0;i<4;i++){
+  const a=new THREE.Vector3(...pts[i]);
+  const b=new THREE.Vector3(...pts[(i+1)%4]);
+  const d=b.clone().sub(a);
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,d.length(),5),mat(0xcfd8e8));
+  m.position.copy(a).add(b).multiplyScalar(.5);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());
+  ring.add(m);
+ }
+}
+
+const roster=[
+["鐵拳",0xe33d4e,0x253047,0xdba985],["雷霆",0x39a8ee,0x172944,0xc99575],
+["巨石",0x54545c,0x171717,0x95674e],["火焰",0xff7829,0x521b1b,0xe3b28e],
+["暗影",0x33313f,0x0b0b12,0xc99878],["銀狼",0xbac8da,0x33445e,0xeac4a0],
+["毒蛇",0x57b95c,0x203c29,0xb87957],["金王",0xf0c747,0x664a18,0xe0b08b],
+["赤虎",0xb52d36,0x4d1c25,0xdba47e],["冰霜",0x86d9ff,0x315d83,0xf0cfb4],
+["夜鷹",0x4743a8,0x18182e,0xb78362],["狂牛",0x8856b6,0x312039,0xd4a17e],
+["颶風",0x25b6a4,0x164a49,0xe0b594],["黑豹",0x22252b,0x0c1016,0x95644c],
+["白鷹",0xe4e7ed,0x526079,0xe2b89a],["魔面",0xffd447,0x34284d,0xc58d68],
+["幽靈",0x8c96aa,0x232b3d,0xe1bfa4],["爆裂",0xf24f9d,0x642349,0xf0c5a4],
+["戰神",0x9d5b35,0x32241e,0xc58b65],["忍者",0x242d3e,0x101722,0xc49a7b],
+["鳳凰",0xe94d45,0x56222c,0xf0c8ae],["星辰",0x5c80ff,0x242b65,0xb77d5d],
+["獵豹",0xdcae39,0x544222,0x966347],["鋼鐵",0x8b9bab,0x3c4653,0xd9ad8a],
+["海嘯",0x248bcb,0x123b5c,0xe5bda0],["紫電",0xa957ec,0x3e205e,0xc38c6c],
+["女王",0xe84e98,0x60254d,0xf1c8b1],["玫瑰",0xff7792,0x792f43,0xd69e7e],
+["風暴",0x5aaf7d,0x204d3c,0xb77c59],["傳奇",0xf3d889,0x55432d,0xe6bfa0]
+];
+
+let chosen=0,player=null,enemy=null;
+let playing=false,paused=false,over=false;
+let joy={x:0,z:0},joyActive=false,keys={};
+let t=0,last=performance.now(),attackCD=0,enemyCD=1;
+let modelUrls=[],loadedModels=new Map(),loadingPromises=new Map();
+const loader=new GLTFLoader();
+
+function setStatus(s){$("status").textContent=s}
+
+function collectUrls(obj,out=[]){
+ if(typeof obj==="string"){
+  if(/^https?:\/\/.+\.glb(?:[?#].*)?$/i.test(obj))out.push(obj);
+  return out;
+ }
+ if(Array.isArray(obj)){
+  for(const x of obj)collectUrls(x,out);
+  return out;
+ }
+ if(obj&&typeof obj==="object"){
+  for(const v of Object.values(obj))collectUrls(v,out);
+ }
+ return [...new Set(out)];
+}
+
+// 公開免費模型 API；不使用需要登入或付費的生成 API。
+async function fetchModelList(){
+ const endpoints=[
+  "https://gobkit.com/api/urls?n=38",
+  "https://gobkit.com/api/free"
+ ];
+ for(const url of endpoints){
+  try{
+   const res=await fetch(url,{mode:"cors",cache:"no-cache"});
+   if(!res.ok)throw Error("HTTP "+res.status);
+   const data=await res.json();
+   let urls=collectUrls(data);
+   if(Array.isArray(data)){
+    urls=urls.concat(data.filter(x=>typeof x==="string"&&/\.glb(?:[?#].*)?$/i.test(x)));
+   }
+   urls=[...new Set(urls)];
+   if(urls.length){
+    modelUrls=urls;
+    setStatus("已取得 "+modelUrls.length+" 個免費模型網址。開始遊戲後會嘗試載入。");
+    return;
+   }
+  }catch(e){
+   console.warn("模型清單取得失敗：",url,e);
+  }
+ }
+ setStatus("目前無法取得線上模型清單；內建 30 個人物仍可正常遊玩。請確認網路連線。");
+}
+fetchModelList();
+
+roster.forEach((r,i)=>{
+ const b=document.createElement("button");
+ b.className="person"+(i===0?" sel":"");
+ b.innerHTML=`<span class="dot" style="background:#${r[1].toString(16).padStart(6,"0")}"></span>${i+1}. ${r[0]}`;
+ b.onclick=()=>{
+  chosen=i;
+  [...$("roster").children].forEach((el,j)=>el.classList.toggle("sel",j===i));
+  if(Number($("enemySelect").value)===i)$("enemySelect").value=String((i+1)%30);
+ };
+ $("roster").appendChild(b);
+ const opt=document.createElement("option");
+ opt.value=i;opt.textContent=`${i+1}. ${r[0]}`;
+ $("enemySelect").appendChild(opt);
+});
+$("enemySelect").value="1";
+
+function sph(parent,r,material,pos){
+ const m=new THREE.Mesh(new THREE.SphereGeometry(r,8,6),material);
+ m.position.set(...pos);
+ parent.add(m);
+ return m;
+}
+function rod(parent,a,b,r,material){
+ const av=new THREE.Vector3(...a),bv=new THREE.Vector3(...b);
+ const d=bv.clone().sub(av);
+ const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,d.length(),6),material);
+ m.position.copy(av).add(bv).multiplyScalar(.5);
+ m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());
+ parent.add(m);
+ return m;
+}
+function limb(parent,upper,lower,r,material){
+ const pivot=new THREE.Group();
+ parent.add(pivot);
+ rod(pivot,[0,0,0],[0,-upper,0],r,material);
+ const joint=new THREE.Group();
+ joint.position.y=-upper;
+ pivot.add(joint);
+ sph(joint,r,material,[0,0,0]);
+ rod(joint,[0,0,0],[0,-lower,0],r*.75,material);
+ return {pivot,joint};
+}
+
+function makeFallback(index,x,z,isPlayer){
+ const d=roster[index],g=new THREE.Group();
+ scene.add(g);
+ g.position.set(x,0,z);
+ g.rotation.y=isPlayer?0:Math.PI;
+ const skin=mat(d[3]),shirt=mat(d[1]),pants=mat(d[2]),dark=mat(0x161820);
+ const body=new THREE.Group();
+ g.add(body);
+ const torso=new THREE.Mesh(new THREE.BoxGeometry(.75,.8,.4),shirt);
+ torso.position.y=1.43;
+ body.add(torso);
+ const pelvis=new THREE.Mesh(new THREE.BoxGeometry(.66,.32,.38),pants);
+ pelvis.position.y=1;
+ body.add(pelvis);
+ const head=new THREE.Group();
+ head.position.y=2.02;
+ body.add(head);
+ sph(head,.25,skin,[0,.15,0]);
+ sph(head,.26,shirt,[0,.28,-.02]);
+ for(const ex of [-.085,.085])sph(head,.03,dark,[ex,.16,.23]);
+ const arms=[],legs=[];
+ for(const s of [-1,1]){
+  sph(body,.14,shirt,[s*.45,1.72,0]);
+  const a=limb(body,.36,.34,.105,skin);
+  a.pivot.position.set(s*.48,1.68,0);
+  arms.push(a);
+  const l=limb(body,.42,.38,.14,pants);
+  l.pivot.position.set(s*.2,.86,0);
+  legs.push(l);
+ }
+ g.userData.parts={body,head,arms,legs};
+ return g;
+}
+
+function findBones(root){
+ const b={};
+ root.traverse(o=>{
+  if(!o.isBone)return;
+  const n=o.name.toLowerCase().replace(/[^a-z]/g,"");
+  if(/leftupperarm|leftarm$|upperarml$/.test(n))b.la=b.la||o;
+  if(/rightupperarm|rightarm$|upperarmr$/.test(n))b.ra=b.ra||o;
+  if(/leftforearm|lowerarml/.test(n))b.lf=b.lf||o;
+  if(/rightforearm|lowerarmr/.test(n))b.rf=b.rf||o;
+  if(/spine$|chest$|upperchest/.test(n))b.spine=b.spine||o;
+ });
+ return b;
+}
+
+async function getTemplate(url){
+ if(loadedModels.has(url))return loadedModels.get(url);
+ if(loadingPromises.has(url))return loadingPromises.get(url);
+ const p=loader.loadAsync(url).then(gltf=>{
+  const template={scene:gltf.scene,animations:gltf.animations||[]};
+  loadedModels.set(url,template);
+  loadingPromises.delete(url);
+  return template;
+ }).catch(err=>{
+  loadingPromises.delete(url);
+  throw err;
+ });
+ loadingPromises.set(url,p);
+ return p;
+}
+
+async function loadModelFor(index,x,z,isPlayer){
+ if(!modelUrls.length)return null;
+ // 不以全域 loading 布林值阻止另一個角色載入。
+ // 每個網址各自快取 Promise，避免重複下載同一個檔案。
+ const url=modelUrls[((index*7)+(isPlayer?0:3))%modelUrls.length];
+ try{
+  const template=await getTemplate(url);
+  const model=cloneSkeleton(template.scene);
+  model.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(model);
+  const size=box.getSize(new THREE.Vector3());
+  if(!Number.isFinite(size.y)||size.y<.05)throw Error("模型高度無效");
+  const scale=2.15/size.y;
+  model.scale.setScalar(scale);
+  model.position.y=-box.min.y*scale;
+  model.traverse(o=>{
+   if(o.isMesh){
+    o.castShadow=false;
+    o.receiveShadow=false;
+    if(o.material){
+     const mats=Array.isArray(o.material)?o.material:[o.material];
+     for(const m of mats){
+      if(m.map)m.map.colorSpace=THREE.SRGBColorSpace;
+    }
+   }
+  }});
+  const g=new THREE.Group();
+  g.position.set(x,0,z);
+  g.rotation.y=isPlayer?0:Math.PI;
+  g.add(model);
+  scene.add(g);
+  g.userData.model=model;
+  g.userData.bones=findBones(model);
+  if(template.animations.length){
+   const mixer=new THREE.AnimationMixer(model);
+   g.userData.mixer=mixer;
+   g.userData.clips=template.animations;
+   const idle=template.animations.find(a=>/idle|stand/i.test(a.name))||template.animations[0];
+   if(idle)mixer.clipAction(idle).play();
+  }
+  return g;
+ }catch(e){
+  console.warn("外部模型載入失敗：",url,e);
+  return null;
+ }
+}
+
+function removeFighter(f){
+ if(!f)return;
+ scene.remove(f);
+ f.traverse(o=>{
+  // 不 dispose 外部模型共用的 geometry/material，
+  // 因為其他角色可能還在使用快取。
+ });
+}
+
+function initFighterData(f,index,isPlayer){
+ f.userData.index=index;
+ f.userData.isPlayer=isPlayer;
+ f.userData.health=100;
+ f.userData.down=0;
+ f.userData.stun=0;
+ f.userData.action="idle";
+ f.userData.actionTime=0;
+ f.userData.moving=false;
+ return f;
+}
+
+async function upgradeFighter(original,index,isPlayer){
+ const real=await loadModelFor(index,original.position.x,original.position.z,isPlayer);
+ if(!real)return;
+ if(!playing||(isPlayer?player:enemy)!==original){
+  removeFighter(real);
+  return;
+ }
+ real.userData={...original.userData};
+ real.position.copy(original.position);
+ real.rotation.y=original.rotation.y;
+ if(isPlayer)player=real;
+ else enemy=real;
+ removeFighter(original);
+}
+
+function start(){
+ removeFighter(player);
+ removeFighter(enemy);
+ const ei=Number($("enemySelect").value);
+ playing=true;paused=false;over=false;
+ attackCD=0;enemyCD=1;
+ player=initFighterData(makeFallback(chosen,-1.25,1,true),chosen,true);
+ enemy=initFighterData(makeFallback(ei,1.25,-1,false),ei,false);
+ $("pn").textContent=roster[chosen][0];
+ $("en").textContent=roster[ei][0]+"（電腦）";
+ $("ph").style.width="100%";
+ $("eh").style.width="100%";
+ $("menu").style.display="none";
+ $("pause").textContent="暫停";
+ $("msg").textContent="開始摔角！";
+ $("hint").textContent="靠近對手，使用抓手臂或摔投";
+ if(modelUrls.length){
+  $("hint").textContent="正在嘗試載入線上 3D 模型；失敗時會保留內建人物";
+  upgradeFighter(player,chosen,true);
+  upgradeFighter(enemy,ei,false);
+ }
+}
+
+$("start").onclick=start;
+$("pause").onclick=()=>{
+ if(!playing){
+  $("menu").style.display="flex";
+  return;
+ }
+ paused=!paused;
+ $("pause").textContent=paused?"繼續":"暫停";
+ $("msg").textContent=paused?"已暫停":"繼續戰鬥";
+};
+
+function dist(a,b){
+ return Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z);
+}
+function face(a,b){
+ a.rotation.y=Math.atan2(b.position.x-a.position.x,b.position.z-a.position.z);
+}
+function act(f,name,dur){
+ f.userData.action=name;
+ f.userData.actionTime=dur;
+}
+function hit(a,b,damage,kind){
+ if(!a||!b||b.userData.down>0||over||dist(a,b)>2.65)return;
+ const u=b.userData;
+ u.health=Math.max(0,u.health-damage);
+ u.stun=.4;
+ if(kind==="slam"||kind==="grab"){
+  u.down=2;
+  u.action="fall";
+  u.actionTime=2;
+  u.fallX=b.position.x>=a.position.x?1:-1;
+  u.fallZ=b.position.z>=a.position.z?1:-1;
+  b.position.x+=u.fallX*.25;
+  b.position.z+=u.fallZ*.25;
+ }else{
+  u.action="hit";
+  u.actionTime=.4;
+  u.down=kind==="kick"?.3:0;
+ }
+ $(u.isPlayer?"ph":"eh").style.width=u.health+"%";
+ $("msg").textContent=kind==="slam"?"摔投成功！":kind==="grab"?"抓抱摔倒！":"命中！";
+ if(u.health<=0){
+  over=true;
+  $("msg").textContent=(u.isPlayer?"玩家":"對手")+"被擊敗！";
+  $("hint").textContent="按暫停，再按開始重新比賽";
+ }
+}
+
+function attack(kind){
+ if(!playing||paused||over||!player||!enemy||
+    player.userData.down>0||player.userData.stun>0||attackCD>0)return;
+ attackCD=kind==="slam"?1:kind==="grab"?.65:.4;
+ face(player,enemy);
+ act(player,kind,.55);
+ if(dist(player,enemy)>2.7){
+  $("hint").textContent="靠近對手再攻擊";
+  return;
+ }
+ if(kind==="grab"){
+  act(enemy,"grabbed",.7);
+  enemy.userData.stun=.7;
+ }
+ if(kind==="slam"){
+  act(enemy,"grabbed",.7);
+  enemy.userData.stun=.8;
+ }
+ const target=enemy;
+ setTimeout(()=>{
+  if(playing&&!paused&&player&&enemy&&target===enemy){
+   hit(player,target,kind==="slam"?25:kind==="grab"?12:kind==="kick"?14:10,kind);
+  }
+ },kind==="slam"?300:120);
+}
+
+document.querySelectorAll(".act").forEach(b=>{
+ b.addEventListener("pointerdown",e=>{
+  e.preventDefault();
+  attack(b.dataset.a);
+ });
+});
+
+window.addEventListener("keydown",e=>{
+ const k=e.key.toLowerCase();
+ keys[k]=true;
+ if(e.repeat)return;
+ if(k==="j")attack("punch");
+ if(k==="k")attack("kick");
+ if(k==="l")attack("grab");
+ if(k==="i")attack("slam");
+ if(k==="escape")$("pause").click();
+});
+window.addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+const joyEl=$("joy"),stick=$("stick");
+function joyMove(e){
+ const r=joyEl.getBoundingClientRect();
+ const cx=r.left+r.width/2,cy=r.top+r.height/2;
+ let x=e.clientX-cx,y=e.clientY-cy;
+ const max=r.width*.3,len=Math.hypot(x,y);
+ if(len>max){x=x/len*max;y=y/len*max;}
+ joy.x=x/max;
+ joy.z=y/max;
+ stick.style.left=(r.width/2-21+x)+"px";
+ stick.style.top=(r.height/2-21+y)+"px";
+}
+function joyReset(){
+ joyActive=false;
+ joy.x=0;joy.z=0;
+ stick.style.left=(joyEl.clientWidth/2-21)+"px";
+ stick.style.top=(joyEl.clientHeight/2-21)+"px";
+}
+joyEl.addEventListener("pointerdown",e=>{
+ joyActive=true;
+ joyEl.setPointerCapture(e.pointerId);
+ joyMove(e);
+});
+joyEl.addEventListener("pointermove",e=>{if(joyActive)joyMove(e);});
+joyEl.addEventListener("pointerup",joyReset);
+joyEl.addEventListener("pointercancel",joyReset);
+
+function pose(f,dt){
+ if(!f)return;
+ const u=f.userData,p=u.parts;
+ u.actionTime=Math.max(0,u.actionTime-dt);
+ u.down=Math.max(0,u.down-dt);
+ u.stun=Math.max(0,u.stun-dt);
+ if(u.mixer)u.mixer.update(dt);
+ if(!p){
+  const bones=u.bones;
+  if(bones){
+   const down=u.down>0;
+   const set=(bone,v)=>{
+    if(bone)bone.rotation.x=THREE.MathUtils.lerp(bone.rotation.x,v,dt*5);
+   };
+   set(bones.la,down?Math.sin(t*7)*.7:u.action==="grab"?-1:u.action==="punch"?-1.3:0);
+   set(bones.ra,down?Math.cos(t*7)*.7:0);
+   set(bones.lf,down?Math.sin(t*8)*.5:0);
+   set(bones.rf,down?Math.cos(t*8)*.5:0);
+   set(bones.spine,down?.7:0);
+  }
+  if(u.model){
+   u.model.rotation.z=THREE.MathUtils.lerp(u.model.rotation.z,u.down>0?.75:0,dt*4);
+  }
+  return;
+ }
+ if(u.down>0){
+  p.body.rotation.z=THREE.MathUtils.lerp(p.body.rotation.z,.85,dt*4);
+  p.body.rotation.x=THREE.MathUtils.lerp(p.body.rotation.x,.45,dt*4);
+  p.arms.forEach((a,i)=>{
+   a.pivot.rotation.z=THREE.MathUtils.lerp(a.pivot.rotation.z,(i?1:-1)*(1+Math.sin(t*8+i)*.3),dt*5);
+   a.joint.rotation.x=Math.sin(t*8+i)*.5;
+  });
+  p.legs.forEach((l,i)=>{
+   l.pivot.rotation.z=(i?1:-1)*(.5+Math.sin(t*7+i)*.25);
+  });
+ }else{
+  p.body.rotation.z=THREE.MathUtils.lerp(p.body.rotation.z,0,dt*6);
+  p.body.rotation.x=THREE.MathUtils.lerp(p.body.rotation.x,0,dt*6);
+  p.arms.forEach((a,i)=>{
+   let x=u.moving?Math.sin(t*9+i*Math.PI)*.45:0;
+   if(u.action==="punch"&&i===0)x=-1.5;
+   if(u.action==="kick"&&i===0)x=-.2;
+   if(u.action==="grab"||u.action==="grabbed")x=-1;
+   a.pivot.rotation.x=THREE.MathUtils.lerp(a.pivot.rotation.x,x,dt*9);
+   a.pivot.rotation.z=THREE.MathUtils.lerp(a.pivot.rotation.z,i?.1:-.1,dt*9);
+   a.joint.rotation.x=THREE.MathUtils.lerp(a.joint.rotation.x,0,dt*8);
+  });
+  p.legs.forEach((l,i)=>{
+   let x=u.moving?Math.sin(t*9+i*Math.PI)*.5:0;
+   if(u.action==="kick"&&i===0)x=-1.4;
+   l.pivot.rotation.x=THREE.MathUtils.lerp(l.pivot.rotation.x,x,dt*9);
+   l.pivot.rotation.z=THREE.MathUtils.lerp(l.pivot.rotation.z,0,dt*8);
+  });
+ }
+ if(u.actionTime<=0&&u.down===0)u.action="idle";
+}
+
+function playerMove(dt){
+ if(!player||player.userData.down>0||player.userData.stun>0||over)return;
+ let x=joy.x,z=joy.z;
+ if(keys.a||keys.arrowleft)x--;
+ if(keys.d||keys.arrowright)x++;
+ if(keys.w||keys.arrowup)z--;
+ if(keys.s||keys.arrowdown)z++;
+ const len=Math.hypot(x,z);
+ if(len>1){x/=len;z/=len;}
+ player.userData.moving=len>.1;
+ if(len>.1){
+  player.position.x+=x*3.6*dt;
+  player.position.z+=z*3.6*dt;
+  player.rotation.y=Math.atan2(x,z);
+ }
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-3.9,3.9);
+ player.position.z=THREE.MathUtils.clamp(player.position.z,-3.9,3.9);
+}
+
+function ai(dt){
+ if(!enemy||!player||enemy.userData.down>0||enemy.userData.stun>0||over)return;
+ const d=dist(enemy,player);
+ face(enemy,player);
+ enemy.userData.moving=d>1.7;
+ if(d>1.6){
+  enemy.position.x+=(player.position.x-enemy.position.x)/Math.max(d,.01)*1.35*dt;
+  enemy.position.z+=(player.position.z-enemy.position.z)/Math.max(d,.01)*1.35*dt;
+ }else if(enemyCD<=0){
+  enemyCD=1.3+Math.random();
+  const kind=["punch","kick","grab","slam"][Math.floor(Math.random()*4)];
+  act(enemy,kind,.5);
+  const attacker=enemy,target=player;
+  setTimeout(()=>{
+   if(playing&&!paused&&attacker===enemy&&target===player){
+    hit(attacker,target,kind==="slam"?20:kind==="grab"?11:9,kind);
+   }
+  },180);
+ }
+}
+
+function frame(now){
+ requestAnimationFrame(frame);
+ const dt=Math.min((now-last)/1000,.04);
+ last=now;
+ t+=dt;
+ if(playing&&!paused){
+  attackCD=Math.max(0,attackCD-dt);
+  enemyCD-=dt;
+  playerMove(dt);
+  ai(dt);
+  pose(player,dt);
+  pose(enemy,dt);
+  if(player){
+   camera.position.x+=(player.position.x*.22-camera.position.x)*dt*2;
+   camera.position.z+=(12+player.position.z*.18-camera.position.z)*dt*2;
+   camera.lookAt(player.position.x*.2,1.05,player.position.z*.1);
+  }
+ }
+ renderer.render(scene,camera);
+}
+requestAnimationFrame(frame);
+
+window.addEventListener("resize",()=>{
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+ renderer.setPixelRatio(Math.min(devicePixelRatio,.85));
+});
+</script>
+</body>
+</html>
